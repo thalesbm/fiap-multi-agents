@@ -1,0 +1,63 @@
+======================================================================
+ Quantum Finance — Consultor Financeiro Multi-Agente
+======================================================================
+Configuracao: {'model': 'gpt-4o-mini'}
+
+======================================================================
+ Cadastro do cliente (Enter para usar o valor padrao)
+======================================================================
+Nome [Joao da Silva]: Thales
+Idade [34]: 33
+Renda mensal (R$) [12000]: 50000
+Patrimonio ja investido (R$) [80000]: 1000000
+Perfil de risco (conservador / moderado / arrojado) [moderado]: moderado
+Horizonte de investimento [10 anos]: 20 anos
+Objetivos (separados por virgula) [aposentadoria, renda passiva]: renda passiva
+
+======================================================================
+ Ola, Thales! Sou o seu consultor da Quantum Finance.
+ Diga quais acoes da B3 voce quer analisar (ex.: PETR4 VALE3 ITUB4).
+ Digite 'sair' para encerrar.
+======================================================================
+
+> Quais acoes quer analisar? PETR4, VALE3  
+
+[1/3] Agente Pesquisador analisando produtos...
+[2/3] Agente de Dados B3 buscando cotacoes reais...
+[3/3] Agente Estrategista consolidando recomendacao...
+
+----------------------------------------------------------------------
+ DADOS REAIS DA B3
+----------------------------------------------------------------------
+- PETR4      preco=R$ 44.6  var_dia=-3.23%  52s=28.86-50.69  (Petroleo Brasileiro SA Pfd)
+- VALE3      preco=R$ 82  var_dia=1.21%  52s=49.72-91.62  (Vale S.A.)
+
+----------------------------------------------------------------------
+ RECOMENDACAO PERSONALIZADA
+----------------------------------------------------------------------
+### 1) Diagnóstico do perfil do cliente
+Thales, com 33 anos, possui um perfil de risco moderado e um horizonte de investimento de 20 anos. Sua renda mensal é de R$ 50.000, e ele possui um patrimônio investido de R$ 1.000.000. Seu principal objetivo é gerar renda passiva, o que sugere uma necessidade de investimentos que proporcionem fluxo de caixa regular e segurança.
+
+### 2) Sugestão de alocação em %
+- **Renda Fixa (CDB e Tesouro Direto): 40%**
+- **Fundos de Investimento Imobiliário (FIIs): 30%**
+- **Ações: 20%**
+- **Reserva de Emergência: 10%**
+
+### 3) Justificativa usando os dados reais da B3
+- **Renda Fixa (40%)**: A alocação em CDBs e Tesouro Direto oferece segurança e previsibilidade, essenciais para um perfil moderado. O Tesouro Direto, sendo considerado o investimento de menor risco no país, é ideal para garantir a proteção do capital e rentabilidade estável. Com a taxa Selic em níveis competitivos, os CDBs também podem oferecer boas oportunidades de rentabilidade.
+  
+- **FIIs (30%)**: Os Fundos de Investimento Imobiliário são uma excelente opção para gerar renda passiva, já que distribuem rendimentos mensais isentos de IR. Isso se alinha perfeitamente ao objetivo de Thales de gerar renda passiva. A diversificação em FIIs pode proporcionar uma boa combinação de segurança e retorno.
+
+- **Ações (20%)**: A alocação em ações, como PETR4 e VALE3, pode oferecer um potencial de valorização no longo prazo. Apesar de serem mais voláteis, ações de empresas sólidas e com bons fundamentos podem contribuir para o crescimento do patrimônio. A análise das ações mostra que PETR4 tem um P/L de 5,34, indicando que pode estar subavaliada, enquanto VALE3, com um P/L de 22,51, reflete um crescimento consistente.
+
+- **Reserva de Emergência (10%)**: É fundamental manter uma reserva de emergência para cobrir imprevistos. Essa reserva deve ser facilmente acessível e, portanto, pode ser mantida em aplicações de alta liquidez, como CDBs de liquidez diária ou Tesouro Selic.
+
+### 4) Riscos relevantes a considerar
+- **Risco de Mercado**: A volatilidade das ações pode impactar o valor do investimento, especialmente no curto prazo.
+- **Risco de Crédito**: Em investimentos em CDBs, existe o risco de calote do banco emissor, embora a proteção do FGC minimize esse risco até R$ 250 mil.
+- **Risco de Liquidez**: Alguns FIIs podem ter menor liquidez, o que pode dificultar a venda em momentos de necessidade.
+- **Risco de Taxa de Juros**: A variação nas taxas de juros pode afetar a rentabilidade dos títulos de renda fixa.
+
+### Aviso final
+Esta é uma sugestão educacional e não deve ser considerada uma recomendação formal de investimento. É importante que Thales consulte um profissional de finanças para uma análise mais detalhada e personalizada de sua situação.
