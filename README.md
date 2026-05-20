@@ -135,6 +135,159 @@ Exemplo de sessão:
 Ate logo!
 ```
 
+## Fluxo das ferramentas (tools)
+
+As tools são funções Python (não-LLM, determinísticas) registradas no
+construtor de cada agente. Quando o agente precisa de dados externos ou de
+informações de uma base local, ele chama a tool via `self.use_tool(nome, …)`
+(método herdado de `Agent`), e o **retorno da tool é injetado no contexto
+JSON** que vai junto com o prompt para o LLM.
+
+### Diagrama do fluxo end-to-end
+
+```
+[ Cliente digita: "PETR4 VALE3" no main.py ]
+                │
+                ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│ AgentePesquisador.pesquisar(produtos)                                 │
+│   1. para cada produto em ["CDB","Tesouro Direto","FII","Acoes"]:     │
+│        ficha = use_tool("pesquisar", produto)                         │
+│        └─► pesquisar_conceito(produto)                                │
+│            └─► consulta BASE_CONHECIMENTO (dict local)                │
+│            └─► retorna string com a explicação do produto             │
+│   2. run(TASK_TEMPLATE, context={"fichas_tecnicas": fichas})          │
+│      └─► LLM gera um resumo didático consolidado                      │
+│   retorna: {"fichas": {...}, "resumo": "<texto LLM>"}                 │
+└──────────────────────────────────────────────────────────────────────┘
+                │
+                ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│ AgenteDadosB3.analisar_carteira(tickers)                              │
+│   1. dados = use_tool("resumo_mercado", ["PETR4","VALE3"])            │
+│        └─► resumo_mercado_b3(tickers)                                 │
+│            └─► para cada ticker: cotacao_b3(ticker)                   │
+│                └─► HTTP GET https://brapi.dev/api/quote/PETR4         │
+│                    com BRAPI_TOKEN no query string                    │
+│                └─► _mapear_resultado(payload) padroniza o dict        │
+│            └─► retorna lista de cotações reais                        │
+│   2. run(TASK_TEMPLATE, context={"cotacoes_b3": dados})               │
+│      └─► LLM gera análise descritiva ancorada nos preços reais        │
+│   retorna: {"dados": [...], "analise": "<texto LLM>"}                 │
+└──────────────────────────────────────────────────────────────────────┘
+                │
+                ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│ AgenteEstrategista.recomendar(perfil, out_pesq, out_b3)               │
+│   - NÃO usa tools — só consolida.                                     │
+│   run(TASK, context={                                                 │
+│       "perfil_cliente": perfil,                                       │
+│       "conceitos": out_pesq,    # ← do Pesquisador                    │
+│       "dados_b3":  out_b3,      # ← do Dados B3                       │
+│   })                                                                  │
+│   └─► LLM gera recomendação final personalizada (5 seções)            │
+│   retorna: string com a recomendação consolidada                      │
+└──────────────────────────────────────────────────────────────────────┘
+                │
+                ▼
+[ Output formatado impresso para o cliente no terminal ]
+```
+
+### Tools — input / output
+
+| Tool | Input | O que faz | Output |
+|---|---|---|---|
+| `pesquisar_conceito` | `conceito: str` | Busca por correspondência parcial (lowercase) no `BASE_CONHECIMENTO` (dict literal em `agents/pesquisador/agent.py` com fichas de CDB, Tesouro Direto, FII, ações, Selic, CDI, IPCA) | `str` com a explicação do produto, ou mensagem de "não encontrado" |
+| `cotacao_b3` | `ticker: str` (ex.: `PETR4`) | `HTTP GET https://brapi.dev/api/quote/{ticker}?token=…` → mapeia o payload via `_mapear_resultado()` | `dict` com `ticker`, `nome`, `preco_atual`, `moeda`, `variacao_dia_pct`, `variacao_52s {min,max}`, `volume`, `pl`, `lpa`, `market_cap`, `atualizado_em`. Se falhar: `{"ticker": …, "erro": …}` |
+| `resumo_mercado_b3` | `tickers: List[str]` | Itera chamando `cotacao_b3()` para cada ticker (o plano gratuito da BrAPI limita a 1 ativo por requisição) | `List[dict]` com o resultado de cada cotação |
+
+### Fontes de dados
+
+| Fonte | Acesso | Usada por |
+|---|---|---|
+| **Base de conhecimento local** | Dict Python em `agents/pesquisador/agent.py` | `pesquisar_conceito` |
+| **BrAPI** (https://brapi.dev) | HTTP REST + token via `BRAPI_TOKEN` | `cotacao_b3`, `resumo_mercado_b3` |
+| **OpenAI Chat Completions** | SDK `openai` + chave via `OPENAI_API_KEY`, modelo `gpt-4o-mini` (default, configurável via `OPENAI_MODEL`) | Função `llm()` em `config.py`, usada por todos os agentes via `Agent.run()` |
+
+## Prompts utilizados
+
+Cada agente tem 2 prompts: o **`INSTRUCTION`** (system prompt — persona e regras
+do agente, definida no construtor) e o **`TASK` / `TASK_TEMPLATE`** (user prompt
+— a tarefa específica que o `consultar()` envia em cada rodada). Ambos vivem em
+`agents/<agente>/prompts.py` e estão transcritos literalmente abaixo.
+
+### Agente Pesquisador — `agents/pesquisador/prompts.py`
+
+**`INSTRUCTION`** (system prompt):
+
+> Voce e um analista de mercado especializado em produtos financeiros
+> brasileiros (CDB, Tesouro Direto, FIIs, acoes). Sua funcao e EXPLICAR
+> conceitos de forma didatica, baseando-se nas fichas tecnicas fornecidas
+> no contexto. Voce NUNCA recomenda investimento — apenas educa o cliente.
+
+**`TASK_TEMPLATE`** (user prompt, com placeholder `{produtos}`):
+
+> Explique de forma clara, em ate 3 paragrafos, os seguintes produtos:
+> {produtos}. Use as fichas tecnicas fornecidas no contexto como base.
+
+### Agente de Dados B3 — `agents/dados_b3/prompts.py`
+
+**`INSTRUCTION`** (system prompt):
+
+> Voce e um especialista em dados da B3 (Bolsa de Valores brasileira).
+> Sua funcao e analisar ativos exclusivamente com base nas COTACOES
+> REAIS fornecidas no contexto. Voce NUNCA inventa cotacoes. Se um dado
+> nao estiver disponivel no contexto, declare isso explicitamente.
+
+**`TASK_TEMPLATE`** (user prompt, com placeholder `{tickers}`):
+
+> Analise brevemente os ativos {tickers} a partir dos dados reais abaixo.
+> Para cada ativo, destaque: preco atual, variacao do dia, faixa de 52
+> semanas, P/L (quando disponivel) e market cap. Nao recomende compra ou
+> venda — apenas descreva.
+
+### Agente Estrategista — `agents/estrategista/prompts.py`
+
+**`INSTRUCTION`** (system prompt):
+
+> Voce e o Consultor Financeiro LIDER da Quantum Finance. Sua tarefa e
+> gerar uma recomendacao de alocacao de carteira PERSONALIZADA para o
+> cliente, considerando: (1) perfil de risco, (2) horizonte de tempo,
+> (3) objetivos, (4) dados reais da B3 fornecidos no contexto,
+> (5) conceitos explicados pelo Agente Pesquisador.
+> **REGRAS CRITICAS:** NUNCA invente cotacoes — use APENAS os dados do
+> contexto. Sempre inclua um aviso final de que esta e uma sugestao
+> educacional, NAO uma recomendacao formal de investimento.
+
+**`TASK`** (user prompt fixo, sem placeholders):
+
+> Com base no perfil do cliente e nas analises dos sub-agentes, gere:
+> 1. Diagnostico do perfil do cliente.
+> 2. Sugestao de alocacao em % (renda fixa, FIIs, acoes, reserva de emergencia).
+> 3. Justificativa usando os dados reais da B3 presentes no contexto.
+> 4. Riscos relevantes a considerar.
+> 5. Aviso final de carater educacional.
+
+### Como o prompt final é montado
+
+`Agent.run(task, context)` em `agents/base.py` faz a composição:
+
+```python
+prompt = (
+    f"# Tarefa\n{task}\n\n"
+    f"# Contexto / Dados disponiveis\n{json.dumps(context, ...)}\n\n"
+    "Responda em portugues, de forma clara e objetiva."
+)
+llm(prompt, system=self.instruction)
+```
+
+Ou seja, cada chamada ao LLM é uma `ChatCompletion` com duas mensagens:
+
+| Role | Conteúdo |
+|---|---|
+| `system` | `INSTRUCTION` do agente |
+| `user` | `# Tarefa\n<TASK ou TASK_TEMPLATE>\n\n# Contexto\n<JSON com o que as tools retornaram>\n\nResponda em portugues, de forma clara e objetiva.` |
+
 ## Anti-alucinação
 
 Conforme exigido no enunciado do projeto:
