@@ -49,8 +49,8 @@ Duas variáveis de ambiente são **obrigatórias**:
 | `BRAPI_TOKEN` | Cadastro gratuito em https://brapi.dev → seção "Dashboard" → token pessoal |
 
 ```bash
-export OPENAI_API_KEY="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"
-export BRAPI_TOKEN="auKzRE3FoQgZATThqd9tki"
+export OPENAI_API_KEY=""
+export BRAPI_TOKEN=""
 cd projeto-final
 python main.py
 ```
