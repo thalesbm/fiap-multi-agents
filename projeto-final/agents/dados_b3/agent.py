@@ -53,27 +53,25 @@ def _mapear_resultado(item: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def cotacao_b3(ticker: str) -> Dict[str, Any]:
-    """Retorna cotacao atual e indicadores de um unico ativo da B3."""
-    return resumo_mercado_b3([ticker])[0]
+    """Retorna cotacao atual e indicadores de um unico ativo da B3.
 
-
-def resumo_mercado_b3(tickers: List[str]) -> List[Dict[str, Any]]:
-    """Busca cotacoes de varios ativos em uma unica chamada (eficiente)."""
-    if not tickers:
-        return []
+    O plano gratuito da BrAPI limita a 1 ativo por requisicao, portanto
+    fazemos uma chamada HTTP separada para cada ticker.
+    """
+    symbol = _normalizar_ticker(ticker)
 
     if not BRAPI_TOKEN:
-        erro = (
-            "BRAPI_TOKEN nao definida. Cadastre-se gratuitamente em "
-            "https://brapi.dev e exporte: `export BRAPI_TOKEN=\"seu-token\"`."
-        )
-        return [{"ticker": _normalizar_ticker(t), "erro": erro} for t in tickers]
-
-    symbols = ",".join(_normalizar_ticker(t) for t in tickers)
+        return {
+            "ticker": symbol,
+            "erro": (
+                "BRAPI_TOKEN nao definida. Cadastre-se gratuitamente em "
+                "https://brapi.dev e exporte: `export BRAPI_TOKEN=\"seu-token\"`."
+            ),
+        }
 
     try:
         resp = requests.get(
-            f"{BRAPI_BASE_URL}/{symbols}",
+            f"{BRAPI_BASE_URL}/{symbol}",
             params={"token": BRAPI_TOKEN},
             timeout=15,
             headers={"User-Agent": "QuantumFinance-MultiAgent/1.0"},
@@ -81,20 +79,20 @@ def resumo_mercado_b3(tickers: List[str]) -> List[Dict[str, Any]]:
         resp.raise_for_status()
         payload = resp.json()
     except Exception as exc:
-        return [{"ticker": _normalizar_ticker(t), "erro": str(exc)} for t in tickers]
+        return {"ticker": symbol, "erro": str(exc)}
 
     resultados = payload.get("results") or []
-    indexados = {item.get("symbol"): item for item in resultados}
+    if not resultados:
+        return {"ticker": symbol, "erro": "ativo nao encontrado na BrAPI"}
+    return _mapear_resultado(resultados[0])
 
-    saida: List[Dict[str, Any]] = []
-    for t in tickers:
-        symbol = _normalizar_ticker(t)
-        item = indexados.get(symbol)
-        if item is None:
-            saida.append({"ticker": symbol, "erro": "ativo nao encontrado na BrAPI"})
-        else:
-            saida.append(_mapear_resultado(item))
-    return saida
+
+def resumo_mercado_b3(tickers: List[str]) -> List[Dict[str, Any]]:
+    """Busca cotacoes de varios ativos.
+
+    Faz uma requisicao por ticker (limite do plano gratuito da BrAPI).
+    """
+    return [cotacao_b3(t) for t in tickers]
 
 
 class AgenteDadosB3(Agent):
